@@ -10,11 +10,7 @@ This project uses Leaflet to display the map and handle the grid layout and the 
 
 # Assignments
 
-This milestone sets up the core mechanics.
-
 ## D3.a: Core mechanics (token collection and crafting)
-
-### Steps
 
 - [x] Copied the original main.ts into a new file called reference.ts to keep as a backup
 - [x] Cleared all contents of main.ts to start fresh
@@ -33,8 +29,22 @@ This milestone sets up the core mechanics.
 - [x] Added logic that prevents interaction with cells that are too far from the player
 - [x] Added the win condition: when the player crafts a token of value 10, show a victory message
 
-## D3.b:
+### D3.b: Movement (set grid and infinite)
 
-...
+- [x] Added on-screen instructions telling the player to use WASD to move
+- [x] Replaced button movement with keyboard controls for smoother player movement
+- [x] Added a player movement system that updates the marker and recenters the map
+- [x] Anchored the world grid to a single origin point to support an earth-spanning coordinate system
+- [x] Implemented latLngToCell() to convert map coordinates back into grid cell coordinates
+- [x] Added a distance check so the game knows which cell the player is close to
+- [x] Created a streaming grid system that spawns new cells as the player moves or scrolls
+- [x] Added logic to despawn cells that move offscreen to keep the map efficient
+- [x] Used luck() to randomly decide which cells actually exist within the visible area
+- [x] Ensured cells reset (“memoryless”) when they leave and re-enter the visible region
+- [x] Connected the streaming system to Leaflet’s moveend event so the world updates whenever the map moves
+- [x] Switched the game from a fixed grid to a fully infinite-feeling world that scrolls in all directions
+- [x] Integrated crafting and pickup mechanics with the new streaming system so interactions still work correctly
+- [x] Updated popups to enforce the interaction radius using the new position-based player system
+- [x] Verified that the win condition still works with the new system and triggers at token value 10
 
-### 
+### D3.c:
