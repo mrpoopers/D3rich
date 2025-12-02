@@ -47,4 +47,8 @@ This project uses Leaflet to display the map and handle the grid layout and the 
 - [x] Updated popups to enforce the interaction radius using the new position-based player system
 - [x] Verified that the win condition still works with the new system and triggers at token value 10
 
+- [x] Changed spawn to Null island
+- [x] Added wasd buttons visible in game
+- [x] Moved css out of main
+
 ### D3.c:

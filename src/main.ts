@@ -79,6 +79,18 @@ export function startGame() {
   directionsDiv.innerHTML = `<div>WASD to move</div>`;
   document.body.append(directionsDiv);
 
+  const movementButtons = document.createElement("div");
+  movementButtons.id = "movementButtons";
+
+  movementButtons.innerHTML = `
+  <div style="text-align:center;">
+  <button id="btnUp">W</button><br>
+  <button id="btnLeft">A</button>
+  <button id="btnDown">S</button>
+  <button id="btnRight">D</button>
+`;
+  document.body.append(movementButtons);
+
   const mapDiv = document.createElement("div");
   mapDiv.id = "map";
   document.body.append(mapDiv);
@@ -116,7 +128,7 @@ export function startGame() {
     let tokenValue = luck([i, j, "spawn"].toString()) < 0.5 ? 1 : 0;
 
     const rect = leaflet.rectangle(cellBounds(i, j), {
-      color: tokenValue > 0 ? "gold" : "gray",
+      className: tokenValue > 0 ? "cell-token" : "cell-empty",
       weight: 1,
     }).addTo(map);
 
@@ -139,13 +151,15 @@ export function startGame() {
           state.heldToken = tokenValue;
           tokenValue = 0;
           statusPanelDiv.innerHTML = `Holding: ${state.heldToken}`;
-          rect.setStyle({ color: "gray" });
+          rect.getElement()?.classList.remove("cell-token");
+          rect.getElement()?.classList.add("cell-empty");
         } else if (state.heldToken !== null && tokenValue > 0) {
           const newValue = state.heldToken + tokenValue;
           state.heldToken = newValue;
           tokenValue = 0;
           statusPanelDiv.innerHTML = `Crafted new value: ${newValue}`;
-          rect.setStyle({ color: "gray" });
+          rect.getElement()?.classList.remove("cell-token");
+          rect.getElement()?.classList.add("cell-empty");
 
           if (newValue >= 10) {
             alert("You win! Crafted token 10.");
@@ -206,6 +220,19 @@ export function startGame() {
     map.panTo(state.playerLatLng);
     updateVisibleCells();
   }
+
+  document.getElementById("btnUp")!.addEventListener("click", () => {
+    movePlayer(gameState, TILE_DEGREES, 0);
+  });
+  document.getElementById("btnDown")!.addEventListener("click", () => {
+    movePlayer(gameState, -TILE_DEGREES, 0);
+  });
+  document.getElementById("btnLeft")!.addEventListener("click", () => {
+    movePlayer(gameState, 0, -TILE_DEGREES);
+  });
+  document.getElementById("btnRight")!.addEventListener("click", () => {
+    movePlayer(gameState, 0, TILE_DEGREES);
+  });
 
   document.addEventListener("keydown", (e) => {
     switch (e.key.toLowerCase()) {

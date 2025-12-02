@@ -10,3 +10,15 @@
   width: 100%;
   height: 80vh;
 }
+
+/* A cell that contains a token */
+.cell-token {
+  stroke: gold;
+  fill: rgba(255, 215, 0, 0.3); /* light gold fill */
+}
+
+/* A cell that is empty */
+.cell-empty {
+  stroke: gray;
+  fill: rgba(128, 128, 128, 0.2); /* light gray fill */
+}
