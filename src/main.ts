@@ -6,9 +6,8 @@ import "./style.css";
 import "./_leafletWorkaround.ts";
 import luck from "./_luck.ts";
 
-// ----------------------------------------
-// UI SETUP
-// ----------------------------------------
+//UI Setup
+
 const directionsDiv = document.createElement("div");
 directionsDiv.id = "directionsDiv";
 document.body.append(directionsDiv);
@@ -28,24 +27,29 @@ directionsDiv.innerHTML = `
   <div>WASD to move</div>
 `;
 
-// ----------------------------------------
-// GAMEPLAY CONSTANTS
-// ----------------------------------------
-const WORLD_ORIGIN = leaflet.latLng(36.997936938057016, -122.05703507501151);
+// Game Constants
+
+const WORLD_ORIGIN = leaflet.latLng(0, 0);
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4;
 const CELL_SPAWN_PROBABILITY = 0.35; // adjust density
 const INTERACTION_RADIUS = 2; // distance in cells
 
-// Player state
-let heldToken: number | null = null;
-let playerLatLng = WORLD_ORIGIN;
+// Game state
+type GameState = {
+  heldToken: number | null;
+  playerLatLng: leaflet.LatLng;
+};
 
-// ----------------------------------------
-// MAP SETUP
-// ----------------------------------------
+const gameState: GameState = {
+  heldToken: null,
+  playerLatLng: WORLD_ORIGIN,
+};
+
+//Map Setup
+
 const map = leaflet.map(mapDiv, {
-  center: playerLatLng,
+  center: gameState.playerLatLng,
   zoom: GAMEPLAY_ZOOM_LEVEL,
   minZoom: GAMEPLAY_ZOOM_LEVEL,
   maxZoom: GAMEPLAY_ZOOM_LEVEL,
@@ -58,13 +62,11 @@ leaflet.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 
 // Player marker
-const playerMarker = leaflet.marker(playerLatLng);
+const playerMarker = leaflet.marker(gameState.playerLatLng);
 playerMarker.bindTooltip("You");
 playerMarker.addTo(map);
 
-// ----------------------------------------
-// CELL COORDINATE HELPERS
-// ----------------------------------------
+//Cell Coordinate Helpers
 
 // Convert grid i,j to geographic rectangle
 function cellBounds(i: number, j: number): leaflet.LatLngBounds {
@@ -85,15 +87,17 @@ function latLngToCell(lat: number, lng: number) {
 }
 
 // Distance between player cell and target cell
-function isNearPlayer(i: number, j: number) {
-  const playerCell = latLngToCell(playerLatLng.lat, playerLatLng.lng);
+function isNearPlayer(state: GameState, i: number, j: number) {
+  const playerCell = latLngToCell(
+    state.playerLatLng.lat,
+    state.playerLatLng.lng,
+  );
   const dist = Math.hypot(i - playerCell.i, j - playerCell.j);
   return dist <= INTERACTION_RADIUS;
 }
 
-// ----------------------------------------
-// ACTIVE CELL MANAGEMENT
-// ----------------------------------------
+//Cell Managment
+
 const activeCells = new Map<string, leaflet.Rectangle>();
 function cellKey(i: number, j: number) {
   return `${i},${j}`;
@@ -107,10 +111,13 @@ function rectangleIsVisible(
   return bounds.intersects(rect.getBounds());
 }
 
-// ----------------------------------------
-// CELL SPAWNING
-// ----------------------------------------
-function spawnCell(i: number, j: number): leaflet.Rectangle {
+//Cell spawning
+
+function spawnCell(
+  state: GameState,
+  i: number,
+  j: number,
+): leaflet.Rectangle {
   // Each cell has a random 0 or 1 token
   let tokenValue = luck([i, j, "spawn"].toString()) < 0.5 ? 1 : 0;
 
@@ -125,27 +132,27 @@ function spawnCell(i: number, j: number): leaflet.Rectangle {
     div.innerHTML = `
       <div>Cell ${i},${j}</div>
       <div>Contains token: <b>${tokenValue}</b></div>
-      <div>Holding: <b>${heldToken ?? "nothing"}</b></div>
+      <div>Holding: <b>${state.heldToken ?? "nothing"}</b></div>
       <button id="interact">Interact</button>
     `;
 
     div.querySelector("#interact")!.addEventListener("click", () => {
       // Enforce interaction radius
-      if (!isNearPlayer(i, j)) {
+      if (!isNearPlayer(state, i, j)) {
         statusPanelDiv.innerHTML = "Too far to interact.";
         return;
       }
 
-      // PICK UP
-      if (heldToken === null && tokenValue > 0) {
-        heldToken = tokenValue;
+      // pick up
+      if (state.heldToken === null && tokenValue > 0) {
+        state.heldToken = tokenValue;
         tokenValue = 0;
-        statusPanelDiv.innerHTML = `Holding: ${heldToken}`;
+        statusPanelDiv.innerHTML = `Holding: ${state.heldToken}`;
         rect.setStyle({ color: "gray" });
-      } // CRAFT
-      else if (heldToken !== null && tokenValue > 0) {
-        const newValue = heldToken + tokenValue;
-        heldToken = newValue;
+      } // craft
+      else if (state.heldToken !== null && tokenValue > 0) {
+        const newValue = state.heldToken + tokenValue;
+        state.heldToken = newValue;
         tokenValue = 0;
         statusPanelDiv.innerHTML = `Crafted new value: ${newValue}`;
         rect.setStyle({ color: "gray" });
@@ -164,9 +171,8 @@ function spawnCell(i: number, j: number): leaflet.Rectangle {
   return rect;
 }
 
-// ----------------------------------------
-// STREAMING CELL SYSTEM
-// ----------------------------------------
+// Stream Cell System
+
 function updateVisibleCells() {
   const bounds = map.getBounds();
 
@@ -181,7 +187,7 @@ function updateVisibleCells() {
       if (!activeCells.has(key)) {
         const roll = luck([i, j, "cellExists"].toString());
         if (roll < CELL_SPAWN_PROBABILITY) {
-          const rect = spawnCell(i, j);
+          const rect = spawnCell(gameState, i, j);
           activeCells.set(key, rect);
         }
       }
@@ -200,32 +206,31 @@ function updateVisibleCells() {
 // Update when map is moved
 map.on("moveend", updateVisibleCells);
 
-// ----------------------------------------
-// PLAYER MOVEMENT
-// ----------------------------------------
-function movePlayer(dLat: number, dLng: number) {
-  playerLatLng = leaflet.latLng(
-    playerLatLng.lat + dLat,
-    playerLatLng.lng + dLng,
+// Player movement
+
+function movePlayer(state: GameState, dLat: number, dLng: number) {
+  state.playerLatLng = leaflet.latLng(
+    state.playerLatLng.lat + dLat,
+    state.playerLatLng.lng + dLng,
   );
-  playerMarker.setLatLng(playerLatLng);
-  map.panTo(playerLatLng);
+  playerMarker.setLatLng(state.playerLatLng);
+  map.panTo(state.playerLatLng);
   updateVisibleCells();
 }
 
 document.addEventListener("keydown", (e) => {
   switch (e.key.toLowerCase()) {
     case "w":
-      movePlayer(TILE_DEGREES, 0);
+      movePlayer(gameState, TILE_DEGREES, 0);
       break;
     case "s":
-      movePlayer(-TILE_DEGREES, 0);
+      movePlayer(gameState, -TILE_DEGREES, 0);
       break;
     case "a":
-      movePlayer(0, -TILE_DEGREES);
+      movePlayer(gameState, 0, -TILE_DEGREES);
       break;
     case "d":
-      movePlayer(0, TILE_DEGREES);
+      movePlayer(gameState, 0, TILE_DEGREES);
       break;
   }
 });
