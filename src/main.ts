@@ -25,7 +25,12 @@ const gameState: GameState = {
   playerLatLng: WORLD_ORIGIN,
 };
 
-//Cell Coordinate Helpers
+// Cell State
+type CellState = {
+  tokenValue: number;
+};
+
+const savedCells = new Map<string, CellState>();
 
 // Convert grid i,j to geographic rectangle
 function cellBounds(i: number, j: number): leaflet.LatLngBounds {
@@ -68,6 +73,19 @@ function rectangleIsVisible(
   bounds: leaflet.LatLngBounds,
 ) {
   return bounds.intersects(rect.getBounds());
+}
+
+function getCellState(i: number, j: number): CellState {
+  const key = cellKey(i, j);
+
+  // If we've saved this one before, restore it
+  if (savedCells.has(key)) {
+    return savedCells.get(key)!;
+  }
+
+  // Otherwise generate a fresh procedural state
+  const tokenValue = luck([i, j, "spawn"].toString()) < 0.5 ? 1 : 0;
+  return { tokenValue };
 }
 
 //startGame()
@@ -125,7 +143,10 @@ export function startGame() {
     i: number,
     j: number,
   ): leaflet.Rectangle {
-    let tokenValue = luck([i, j, "spawn"].toString()) < 0.5 ? 1 : 0;
+    const key = cellKey(i, j);
+
+    // Load state (memento) or generate new
+    let { tokenValue } = getCellState(i, j);
 
     const rect = leaflet.rectangle(cellBounds(i, j), {
       className: tokenValue > 0 ? "cell-token" : "cell-empty",
@@ -150,6 +171,7 @@ export function startGame() {
         if (state.heldToken === null && tokenValue > 0) {
           state.heldToken = tokenValue;
           tokenValue = 0;
+          savedCells.set(key, { tokenValue });
           statusPanelDiv.innerHTML = `Holding: ${state.heldToken}`;
           rect.getElement()?.classList.remove("cell-token");
           rect.getElement()?.classList.add("cell-empty");
@@ -189,8 +211,12 @@ export function startGame() {
         const key = cellKey(i, j);
 
         if (!activeCells.has(key)) {
-          const roll = luck([i, j, "cellExists"].toString());
-          if (roll < CELL_SPAWN_PROBABILITY) {
+          // IMPORTANT: Cells exist only if they spawned once OR if they were modified
+          const existsProcedurally =
+            luck([i, j, "cellExists"].toString()) < CELL_SPAWN_PROBABILITY;
+          const wasModified = savedCells.has(key);
+
+          if (existsProcedurally || wasModified) {
             const rect = spawnCell(gameState, i, j);
             activeCells.set(key, rect);
           }

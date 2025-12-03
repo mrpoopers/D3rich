@@ -47,8 +47,19 @@ This project uses Leaflet to display the map and handle the grid layout and the 
 - [x] Updated popups to enforce the interaction radius using the new position-based player system
 - [x] Verified that the win condition still works with the new system and triggers at token value 10
 
+### D3.b edits
+
 - [x] Changed spawn to Null island
 - [x] Added wasd buttons visible in game
 - [x] Moved css out of main
 
-### D3.c:
+### D3.c: Object persistence
+
+- [x] Added a savedCells Map to store only modified cell states
+- [x] Created a CellState type to track token values for modified cells.
+- [x] Implemented getCellState(i, j) to load saved state or generate a fresh procedural state using luck().
+- [x] Updated spawnCell so each cell loads its state from the Memento system instead of always generating new random values.
+- [x] Added logic to save cell modifications whenever a player picks up or crafts a token.
+- [x] Updated the streaming system so modified cells always respawn when visible
+
+### D3.d: Gameplay Across Real-world Space and Time
