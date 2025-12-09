@@ -63,3 +63,8 @@ This project uses Leaflet to display the map and handle the grid layout and the 
 - [x] Updated the streaming system so modified cells always respawn when visible
 
 ### D3.d: Gameplay Across Real-world Space and Time
+
+- [x] Abstract player movement behind a MovementFacade
+- [x] Support both button and geolocation-based controls
+- [x] Persist player and cell state using localStorage
+- [x] Allow switching movement modes and restarting the game

@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import "./style.css";
 import "./_leafletWorkaround.ts";
 import luck from "./_luck.ts";
+const STORAGE_KEY = "geo-token-game-v1";
 
 // Game Constants
 
@@ -41,6 +42,29 @@ function cellBounds(i: number, j: number): leaflet.LatLngBounds {
       [o.lat + (i + 1) * TILE_DEGREES, o.lng + (j + 1) * TILE_DEGREES],
     ],
   );
+}
+
+function saveGame() {
+  const payload = {
+    playerLatLng: gameState.playerLatLng,
+    heldToken: gameState.heldToken,
+    savedCells: Array.from(savedCells.entries()),
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+
+function loadGame() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return;
+
+  const data = JSON.parse(raw);
+  gameState.playerLatLng = leaflet.latLng(data.playerLatLng);
+  gameState.heldToken = data.heldToken;
+
+  savedCells.clear();
+  for (const [k, v] of data.savedCells) {
+    savedCells.set(k, v);
+  }
 }
 
 // Reverse: lat/lng → grid cell
@@ -88,9 +112,92 @@ function getCellState(i: number, j: number): CellState {
   return { tokenValue };
 }
 
+type MoveFn = (dLat: number, dLng: number) => void;
+
+interface MovementController {
+  start(): void;
+  stop(): void;
+}
+
+class ButtonMovementController implements MovementController {
+  constructor(private move: MoveFn) {}
+
+  start() {
+    document.addEventListener("keydown", this.onKey);
+  }
+
+  stop() {
+    document.removeEventListener("keydown", this.onKey);
+  }
+
+  private onKey = (e: KeyboardEvent) => {
+    switch (e.key.toLowerCase()) {
+      case "w":
+        this.move(TILE_DEGREES, 0);
+        break;
+      case "s":
+        this.move(-TILE_DEGREES, 0);
+        break;
+      case "a":
+        this.move(0, -TILE_DEGREES);
+        break;
+      case "d":
+        this.move(0, TILE_DEGREES);
+        break;
+    }
+  };
+}
+
+class GeoMovementController implements MovementController {
+  private watchId: number | null = null;
+  private lastPos: GeolocationPosition | null = null;
+
+  constructor(private move: MoveFn) {}
+
+  start() {
+    this.watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        if (!this.lastPos) {
+          this.lastPos = pos;
+          return;
+        }
+
+        const dLat = (pos.coords.latitude - this.lastPos.coords.latitude) *
+          0.00001;
+        const dLng = (pos.coords.longitude - this.lastPos.coords.longitude) *
+          0.00001;
+
+        this.move(dLat, dLng);
+        this.lastPos = pos;
+      },
+      console.error,
+      { enableHighAccuracy: true },
+    );
+  }
+
+  stop() {
+    if (this.watchId !== null) {
+      navigator.geolocation.clearWatch(this.watchId);
+      this.watchId = null;
+    }
+  }
+}
+
+class MovementFacade {
+  private active: MovementController | null = null;
+
+  use(controller: MovementController) {
+    this.active?.stop();
+    this.active = controller;
+    this.active.start();
+  }
+}
+
 //startGame()
 
 export function startGame() {
+  loadGame();
+
   // UI Setup
   const directionsDiv = document.createElement("div");
   directionsDiv.id = "directionsDiv";
@@ -247,6 +354,19 @@ export function startGame() {
     updateVisibleCells();
   }
 
+  const movement = new MovementFacade();
+
+  const moveFn: MoveFn = (dLat, dLng) => {
+    movePlayer(gameState, dLat, dLng);
+    saveGame();
+  };
+
+  const buttonController = new ButtonMovementController(moveFn);
+  const geoController = new GeoMovementController(moveFn);
+
+  // Default mode
+  movement.use(buttonController);
+
   document.getElementById("btnUp")!.addEventListener("click", () => {
     movePlayer(gameState, TILE_DEGREES, 0);
   });
@@ -260,22 +380,24 @@ export function startGame() {
     movePlayer(gameState, 0, TILE_DEGREES);
   });
 
-  document.addEventListener("keydown", (e) => {
-    switch (e.key.toLowerCase()) {
-      case "w":
-        movePlayer(gameState, TILE_DEGREES, 0);
-        break;
-      case "s":
-        movePlayer(gameState, -TILE_DEGREES, 0);
-        break;
-      case "a":
-        movePlayer(gameState, 0, -TILE_DEGREES);
-        break;
-      case "d":
-        movePlayer(gameState, 0, TILE_DEGREES);
-        break;
-    }
-  });
+  const controls = document.createElement("div");
+  controls.innerHTML = `
+  <button id="useButtons">Buttons</button>
+  <button id="useGeo">Geolocation</button>
+  <button id="newGame">New Game</button>
+`;
+  document.body.append(controls);
+
+  document.getElementById("useButtons")!.onclick = () =>
+    movement.use(buttonController);
+
+  document.getElementById("useGeo")!.onclick = () =>
+    movement.use(geoController);
+
+  document.getElementById("newGame")!.onclick = () => {
+    localStorage.clear();
+    location.reload();
+  };
 
   // Initial render
   updateVisibleCells();
